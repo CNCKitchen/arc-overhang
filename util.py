@@ -309,9 +309,9 @@ def write_gcode(file_name, arc, line_width, layer_height, filament_diameter, e_m
                 #print('Width: ', line_width)
                 #print('multi: ', e_multiplier)
             if travel:
-                feedrate *= 20
+                feedrate *= 50
                 gcode_file.write("G1 E-1 F3000\n") # retract
-                gcode_file.write("G91\nG0 Z0.5 F3000\nG90\n") # z-hop
+                #gcode_file.write("G91\nG0 Z0.5 F3000\nG90\n") # z-hop
             gcode_file.write(f"G0 "
                             f"X{'{0:.3f}'.format(coordinate[0])} "
                             f"Y{'{0:.3f}'.format(coordinate[1])} "
@@ -320,7 +320,7 @@ def write_gcode(file_name, arc, line_width, layer_height, filament_diameter, e_m
             #if e_distance <= 0.0001:
             if travel:
                 feedrate /= 20
-                gcode_file.write("G91\nG0 Z-0.5 F3000\nG90\n") # z-hop end
+                #gcode_file.write("G91\nG0 Z-0.5 F3000\nG90\n") # z-hop end
                 gcode_file.write("G1 E1 F3000\nG92 E0\n") # de-retract
             travel = False
             prev_coordinate = coordinate

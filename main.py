@@ -14,7 +14,7 @@ LINE_WIDTH = 0.4  # AKA the increase in radius as arcs grow from a central point
 OVERLAP = 15 # Overlap in %
 LAYER_HEIGHT = 0.3  # Thicker seems to be more stable due to physics.
 ARC_E_MULTIPLIER = 1.2  # Amount of overextrusion to do while doing the overhangs. This somewhat compensates for the unconstrained filament
-FEEDRATE = 2.5  # Speed while printing the overhangs. In mm/s. Slower helps make it look cleaner.
+FEEDRATE = 2  # Speed while printing the overhangs. In mm/s. Slower helps make it look cleaner.
 FILAMENT_DIAMETER = 1.75 
 BRIM_WIDTH = 0  #
 
