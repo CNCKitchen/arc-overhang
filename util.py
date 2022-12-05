@@ -297,17 +297,32 @@ def write_gcode(file_name, arc, line_width, layer_height, filament_diameter, e_m
             coord_list = arc.exterior.coords
             
         prev_coordinate = coord_list[0]
+        travel = True
         for coordinate in coord_list:
             # Calculate extrusion amount
             # Extrusion number = height of cylinder with equal volume to amount of filament required
             distance = Point(coordinate).distance(Point(prev_coordinate))
             volume = line_width * layer_height * distance
             e_distance = e_multiplier * volume / (3.1415 * (filament_diameter / 2)**2)
+            if e_distance > 0:
+                print('Flow: ', e_distance / distance)
+                #print('Width: ', line_width)
+                #print('multi: ', e_multiplier)
+            if travel:
+                feedrate *= 20
+                gcode_file.write("G1 E-1 F3000\n") # retract
+                gcode_file.write("G91\nG0 Z0.5 F3000\nG90\n") # z-hop
             gcode_file.write(f"G0 "
                             f"X{'{0:.3f}'.format(coordinate[0])} "
                             f"Y{'{0:.3f}'.format(coordinate[1])} "
-                            f"E{'{0:.3f}'.format(e_distance)} "
+                            f"E{'{0:.6f}'.format(e_distance)} "
                             f"F{feedrate*60}\n")
+            #if e_distance <= 0.0001:
+            if travel:
+                feedrate /= 20
+                gcode_file.write("G91\nG0 Z-0.5 F3000\nG90\n") # z-hop end
+                gcode_file.write("G1 E1 F3000\nG92 E0\n") # de-retract
+            travel = False
             prev_coordinate = coordinate
     return
 

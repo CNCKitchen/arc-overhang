@@ -11,11 +11,12 @@ import os
 
 # 3D printing parameters
 LINE_WIDTH = 0.4  # AKA the increase in radius as arcs grow from a central point.
-LAYER_HEIGHT = 0.4  # Thicker seems to be more stable due to physics.
-ARC_E_MULTIPLIER = 1.30  # Amount of overextrusion to do while doing the overhangs. This somewhat compensates for the unconstrained filament
-FEEDRATE = 2  # Speed while printing the overhangs. In mm/s. Slower helps make it look cleaner.
+OVERLAP = 15 # Overlap in %
+LAYER_HEIGHT = 0.3  # Thicker seems to be more stable due to physics.
+ARC_E_MULTIPLIER = 1.2  # Amount of overextrusion to do while doing the overhangs. This somewhat compensates for the unconstrained filament
+FEEDRATE = 2.5  # Speed while printing the overhangs. In mm/s. Slower helps make it look cleaner.
 FILAMENT_DIAMETER = 1.75 
-BRIM_WIDTH = 5  #
+BRIM_WIDTH = 0  #
 
 print_settings = {
     "layer_height": LAYER_HEIGHT,
@@ -27,13 +28,13 @@ print_settings = {
 }
 
 # Shape generation parameters
-OVERHANG_HEIGHT = 20  # How high the test print is above the build plate
-BASE_HEIGHT = 2 # thickness of circular base
+OVERHANG_HEIGHT = 5  # How high the test print is above the build plate
+BASE_HEIGHT = 0.3 # thickness of circular base
 
 # Hard-coded recursion information
-THRESHOLD = LINE_WIDTH / 2  # How much of a 'buffer' the arcs leave around the base polygon. Don't set it negative or bad things happen.
+THRESHOLD = LINE_WIDTH / 1  # How much of a 'buffer' the arcs leave around the base polygon. Don't set it negative or bad things happen.
 OUTPUT_FILE_NAME = "output/output.gcode"
-R_MAX = 50  # maximum radius for a circle
+R_MAX = 20  # maximum radius for a circle
 N = 40      # number of points per circle
 
 # Create a figure that we can plot stuff onto
@@ -76,22 +77,28 @@ with open('input/start.gcode','r') as start_gcode, open(OUTPUT_FILE_NAME,'a') as
 # Create base polygon. The base polygon is the shape that will be filled by arcs
 # base_poly = create_rect(RECT_X, RECT_Y, RECT_LENGTH, RECT_WIDTH, True)
 
-# Make the base polygon a randomly generated shape
-base_poly = Polygon(util.generate_polygon(center=(117.5, 117.5),
-                                         avg_radius=35,
-                                         irregularity=0.9,
-                                         spikiness=0.4,
-                                         num_vertices=20))
+# # Make the base polygon a randomly generated shape
+# base_poly = Polygon(util.generate_polygon(center=(90, 90),
+#                                          avg_radius=20,
+#                                          irregularity=0.9,
+#                                          spikiness=0.4,
+#                                          num_vertices=6))
+
+#base_poly = Polygon([[40,40],[40,80],[80,80],[80,40]])
+base_poly = Polygon([[50,100],[70,100],[70,30],[66,30],[38,58],[38,68],[50,80]])
 
 # Find starting edge (in this implementation, it just finds the largest edge to start from.
 # TODO Allow multiple starting points
 # TODO Come up with some way to determine starting edges based on geometry of previous layer
  
-p1, p2 = util.longest_edge(base_poly)
-starting_line = LineString([p1, p2])
+#p1, p2 = util.longest_edge(base_poly)
+#starting_line = LineString([p1, p2])
+
+starting_line = LineString([Point(50,80), Point(50,100)])
 
 # Copy the base polygon, but exclude the starting (longest) line, turning it from a closed Polygon to an open LineString
-boundary_line = LineString(util.get_boundary_line(base_poly, p1))
+#boundary_line = LineString(util.get_boundary_line(base_poly, p1))
+boundary_line = LineString(util.get_boundary_line(base_poly, Point(50,80)))
 
 # Create the first arc
 starting_point, r_start, r_farthest = util.get_farthest_point(starting_line, boundary_line, base_poly)
@@ -115,12 +122,12 @@ with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
     gcode_file.write("G1 E4.25\n")  # Unretract
     
 # Fill in circles from outside to inside
-while curr_z < BASE_HEIGHT:
+while curr_z <= BASE_HEIGHT:
     starting_tower_r = r_start + BRIM_WIDTH  
     while starting_tower_r > LINE_WIDTH*2:
         first_layer_circle = util.create_circle(starting_point.x, starting_point.y, starting_tower_r, N)
-        util.write_gcode(OUTPUT_FILE_NAME, first_layer_circle, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*5, close_loop=True)
-        starting_tower_r -= LINE_WIDTH*2
+        util.write_gcode(OUTPUT_FILE_NAME, first_layer_circle, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*6, close_loop=True)
+        starting_tower_r -= LINE_WIDTH*4
     
     curr_z += LAYER_HEIGHT
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
@@ -129,12 +136,15 @@ while curr_z < BASE_HEIGHT:
 with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
     gcode_file.write(f"G1 Z{'{0:.3f}'.format(curr_z)} F500\n")
     gcode_file.write(";Generating tower\n") 
+    gcode_file.write("M106 S255\n") 
     
 while curr_z < OVERHANG_HEIGHT:
-    util.write_gcode(OUTPUT_FILE_NAME, starting_line.buffer(LINE_WIDTH), LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*5, close_loop=True)
+    util.write_gcode(OUTPUT_FILE_NAME, starting_line.buffer(LINE_WIDTH), LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, 2, FEEDRATE*6, close_loop=True)
     with open(OUTPUT_FILE_NAME, 'a') as gcode_file:
         gcode_file.write(f"G1 Z{'{0:.3f}'.format(curr_z)} F500\n")
     curr_z += LAYER_HEIGHT
+
+LINE_WIDTH = LINE_WIDTH * (1 - OVERLAP / 100)
 
 # Create multiple layers
 r = LINE_WIDTH
@@ -148,7 +158,7 @@ while r < r_start-THRESHOLD:
     r += LINE_WIDTH
     
     # Write gcode to file
-    util.write_gcode(OUTPUT_FILE_NAME, next_arc, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER, FEEDRATE, close_loop=False)
+    util.write_gcode(OUTPUT_FILE_NAME, next_arc, LINE_WIDTH, LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER * (OVERLAP/100 + 1), FEEDRATE, close_loop=False)
     
     # Create image
     #file_name = util.image_number(image_name_list)   
@@ -163,7 +173,7 @@ while longest_distance > THRESHOLD + LINE_WIDTH:
                                                                         remaining_empty_space, next_circle, 
                                                                         THRESHOLD, ax, fig, 1, image_name_list, 
                                                                         R_MAX, LINE_WIDTH, OUTPUT_FILE_NAME,
-                                                                        LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER,
+                                                                        LAYER_HEIGHT, FILAMENT_DIAMETER, ARC_E_MULTIPLIER * (OVERLAP/100 + 1),
                                                                         FEEDRATE)
     next_point, longest_distance, _ = util.get_farthest_point(curr_arc, boundary_line, remaining_empty_space)
 """
